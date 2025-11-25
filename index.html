@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="zh-CN" class="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>极光下载器 - Aurora Downloader</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 Vue 3 -->
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <!-- 配置 Tailwind 深色模式 -->
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        primary: '#6366f1',
+                        secondary: '#a855f7',
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* 自定义一些过渡动画 */
+        body { transition: background-color 0.3s, color 0.3s; }
+        .glass {
+            background: rgba(255, 255, 255, 0.7);
+            backdrop-filter: blur(10px);
+        }
+        .dark .glass {
+            background: rgba(31, 41, 55, 0.7);
+        }
+        .fade-enter-active, .fade-leave-active { transition: opacity 0.5s ease; }
+        .fade-enter-from, .fade-leave-to { opacity: 0; }
+        
+        .pop-enter-active, .pop-leave-active { transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
+        .pop-enter-from, .pop-leave-to { opacity: 0; transform: scale(0.8); }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 dark:bg-gray-900 dark:text-gray-100 min-h-screen font-sans antialiased selection:bg-primary selection:text-white">
+
+    <div id="app" class="relative min-h-screen flex flex-col">
+        
+        <!-- 导航栏 -->
+        <nav class="fixed w-full z-50 glass border-b border-gray-200 dark:border-gray-700 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between h-16 items-center">
+                    <div class="flex items-center gap-2">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary flex items-center justify-center text-white font-bold">A</div>
+                        <span class="font-bold text-xl tracking-tight">Aurora<span class="text-primary">DL</span></span>
+                    </div>
+                    
+                    <div class="flex items-center gap-4">
+                        <!-- 主题切换按钮 -->
+                        <button @click="toggleTheme" class="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 transition-colors">
+                            <span v-if="!isDark">🌞</span>
+                            <span v-else>🌙</span>
+                        </button>
+
+                        <!-- 用户状态 -->
+                        <div v-if="currentUser" class="flex items-center gap-3">
+                            <span class="hidden sm:block font-medium">{{ currentUser.username }}</span>
+                            <button @click="logout" class="text-sm text-red-500 hover:text-red-600 font-medium">退出</button>
+                        </div>
+                        <div v-else>
+                            <button @click="showAuthModal('login')" class="px-4 py-2 text-sm font-medium text-white bg-primary hover:bg-indigo-600 rounded-lg transition-colors shadow-lg shadow-indigo-500/30">
+                                登录 / 注册
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <!-- 主要内容区域 (只有登录后可见，或者展示登录引导) -->
+        <main class="flex-grow pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-7xl mx-auto w-full">
+            
+            <!-- 如果未登录，显示引导页 -->
+            <div v-if="!currentUser" class="text-center py-20">
+                <h1 class="text-4xl md:text-6xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-primary to-secondary mb-6">
+                    极速下载，触手可及
+                </h1>
+                <p class="text-lg text-gray-600 dark:text-gray-400 mb-8 max-w-2xl mx-auto">
+                    请登录以访问我们的专属资源库。我们提供最优质的设计素材、开发工具及更多内容。
+                </p>
+                <button @click="showAuthModal('register')" class="px-8 py-3 text-lg font-bold text-white bg-gradient-to-r from-primary to-secondary rounded-full hover:shadow-xl hover:scale-105 transition-all duration-300">
+                    立即加入
+                </button>
+            </div>
+
+            <!-- 登录后显示的资源列表 -->
+            <div v-else>
+                <div class="flex justify-between items-end mb-8">
+                    <div>
+                        <h2 class="text-2xl font-bold">热门资源</h2>
+                        <p class="text-gray-500 dark:text-gray-400">为您精选的最新下载内容</p>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                    <!-- 资源卡片循环 -->
+                    <div v-for="(item, index) in downloads" :key="index" 
+                         class="group bg-white dark:bg-gray-800 rounded-2xl p-6 shadow-lg hover:shadow-2xl border border-gray-100 dark:border-gray-700 transition-all duration-300 hover:-translate-y-1">
+                        <div class="flex items-start justify-between mb-4">
+                            <div class="p-3 rounded-xl bg-gray-100 dark:bg-gray-700 text-2xl">
+                                {{ item.icon }}
+                            </div>
+                            <span class="px-2 py-1 text-xs font-semibold text-green-600 bg-green-100 rounded-md dark:bg-green-900 dark:text-green-300">v{{ item.version }}</span>
+                        </div>
+                        <h3 class="text-xl font-bold mb-2 group-hover:text-primary transition-colors">{{ item.name }}</h3>
+                        <p class="text-gray-600 dark:text-gray-400 text-sm mb-6 line-clamp-2">
+                            {{ item.desc }}
+                        </p>
+                        <a :href="item.link" target="_blank" 
+                           class="block w-full py-2.5 text-center text-white font-medium bg-gray-900 dark:bg-primary rounded-xl hover:opacity-90 transition-opacity">
+                           立即下载
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="py-6 text-center text-gray-500 dark:text-gray-600 text-sm">
+            &copy; 2023 Aurora Downloader. All rights reserved.
+        </footer>
+
+        <!-- 登录/注册 模态框 -->
+        <transition name="fade">
+            <div v-if="authModal.show" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm" @click.self="closeAuthModal">
+                <div class="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all">
+                    <div class="p-8">
+                        <h2 class="text-2xl font-bold mb-6 text-center">
+                            {{ authModal.type === 'login' ? '欢迎回来' : '创建账号' }}
+                        </h2>
+                        
+                        <form @submit.prevent="handleAuth">
+                            <div class="space-y-4">
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">用户名</label>
+                                    <input v-model="form.username" type="text" required class="w-full px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:outline-none">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-medium mb-1">密码</label>
+                                    <input v-model="form.password" type="password" required class="w-full px-4 py-2 rounded-lg bg-gray-50 dark:bg-gray-700 border border-gray-200 dark:border-gray-600 focus:ring-2 focus:ring-primary focus:outline-none">
+                                </div>
+                            </div>
+                            
+                            <div class="mt-6">
+                                <button type="submit" class="w-full py-3 bg-primary hover:bg-indigo-600 text-white font-bold rounded-lg transition-colors">
+                                    {{ authModal.type === 'login' ? '登 录' : '注 册' }}
+                                </button>
+                            </div>
+                        </form>
+
+                        <div class="mt-4 text-center text-sm text-gray-500">
+                            <span v-if="authModal.type === 'login'">还没有账号? <a href="#" @click.prevent="authModal.type = 'register'" class="text-primary hover:underline">去注册</a></span>
+                            <span v-else>已有账号? <a href="#" @click.prevent="authModal.type = 'login'" class="text-primary hover:underline">去登录</a></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </transition>
+
+        <!-- 欢迎弹窗 (本机再次打开或登录成功时显示) -->
+        <transition name="pop">
+            <div v-if="showWelcome" class="fixed top-24 right-4 z-[70] max-w-sm w-full">
+                <div class="bg-white dark:bg-gray-800 rounded-xl shadow-2xl p-4 border-l-4 border-primary flex items-start gap-4">
+                    <div class="text-3xl">👋</div>
+                    <div>
+                        <h4 class="font-bold text-lg">欢迎回来, {{ currentUser.username }}!</h4>
+                        <p class="text-sm text-gray-600 dark:text-gray-400">很高兴再次见到你，准备好下载了吗？</p>
+                    </div>
+                    <button @click="showWelcome = false" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 ml-auto">&times;</button>
+                </div>
+            </div>
+        </transition>
+
+    </div>
+
+    <script>
+        const { createApp, ref, onMounted, reactive } = Vue;
+
+        createApp({
+            setup() {
+                // --- 状态管理 ---
+                const isDark = ref(false);
+                const currentUser = ref(null);
+                const showWelcome = ref(false);
+                const authModal = reactive({ show: false, type: 'login' }); // login or register
+                const form = reactive({ username: '', password: '' });
+                
+                // --- 模拟数据库数据 ---
+                const downloads = [
+                    { name: 'PhotoShop 2024', version: '25.0', icon: '🎨', desc: '全球领先的图像处理和设计软件，带AI生成填充功能。', link: 'https://www.adobe.com/products/photoshop.html' },
+                    { name: 'VS Code', version: '1.83', icon: '💻', desc: '轻量级但功能强大的源代码编辑器，支持多种插件。', link: 'https://code.visualstudio.com/' },
+                    { name: 'Node.js', version: '20.0 LTS', icon: '🚀', desc: '基于Chrome V8引擎的JavaScript运行时环境。', link: 'https://nodejs.org/' },
+                    { name: 'Blender', version: '3.6', icon: '🧊', desc: '开源的3D创作套件，支持建模、动画、渲染。', link: 'https://www.blender.org/' },
+                    { name: 'Figma Desktop', version: 'Latest', icon: '✒️', desc: '协作式界面设计工具，让设计更流畅。', link: 'https://www.figma.com/downloads/' },
+                    { name: 'Docker', version: '4.2', icon: '🐳', desc: '开发人员构建、运行和共享应用程序的平台。', link: 'https://www.docker.com/' },
+                ];
+
+                // --- 方法 ---
+
+                // 1. 主题切换逻辑
+                const toggleTheme = () => {
+                    isDark.value = !isDark.value;
+                    if (isDark.value) {
+                        document.documentElement.classList.add('dark');
+                        localStorage.setItem('theme', 'dark');
+                    } else {
+                        document.documentElement.classList.remove('dark');
+                        localStorage.setItem('theme', 'light');
+                    }
+                };
+
+                // 2. 模态框控制
+                const showAuthModal = (type) => {
+                    authModal.type = type;
+                    authModal.show = true;
+                    form.username = '';
+                    form.password = '';
+                };
+                const closeAuthModal = () => authModal.show = false;
+
+                // 3. 认证逻辑 (模拟后端)
+                const handleAuth = () => {
+                    const users = JSON.parse(localStorage.getItem('users_db') || '[]');
+                    
+                    if (authModal.type === 'register') {
+                        // 注册逻辑
+                        const existing = users.find(u => u.username === form.username);
+                        if (existing) {
+                            alert('用户名已存在！');
+                            return;
+                        }
+                        const newUser = { username: form.username, password: form.password }; // 注意：实际开发必须加密密码
+                        users.push(newUser);
+                        localStorage.setItem('users_db', JSON.stringify(users));
+                        alert('注册成功，请登录！');
+                        authModal.type = 'login';
+                    } else {
+                        // 登录逻辑
+                        const user = users.find(u => u.username === form.username && u.password === form.password);
+                        if (user) {
+                            loginSuccess(user);
+                        } else {
+                            alert('用户名或密码错误 (如果您是第一次使用，请先点击注册)');
+                        }
+                    }
+                };
+
+                const loginSuccess = (user) => {
+                    currentUser.value = user;
+                    localStorage.setItem('session_user', JSON.stringify(user)); // 记住登录状态
+                    closeAuthModal();
+                    triggerWelcome();
+                };
+
+                const logout = () => {
+                    currentUser.value = null;
+                    localStorage.removeItem('session_user');
+                    showWelcome.value = false;
+                };
+
+                // 4. 欢迎弹窗逻辑
+                const triggerWelcome = () => {
+                    showWelcome.value = true;
+                    // 5秒后自动消失
+                    setTimeout(() => {
+                        showWelcome.value = false;
+                    }, 5000);
+                };
+
+                // --- 生命周期 ---
+                onMounted(() => {
+                    // 初始化主题
+                    const savedTheme = localStorage.getItem('theme');
+                    const systemDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+                    if (savedTheme === 'dark' || (!savedTheme && systemDark)) {
+                        isDark.value = true;
+                        document.documentElement.classList.add('dark');
+                    }
+
+                    // 检查自动登录 (第二次打开不用再登录)
+                    const session = localStorage.getItem('session_user');
+                    if (session) {
+                        currentUser.value = JSON.parse(session);
+                        // 如果已登录，弹出欢迎
+                        setTimeout(() => triggerWelcome(), 500); 
+                    }
+                });
+
+                return {
+                    isDark,
+                    toggleTheme,
+                    currentUser,
+                    downloads,
+                    authModal,
+                    showAuthModal,
+                    closeAuthModal,
+                    form,
+                    handleAuth,
+                    logout,
+                    showWelcome
+                };
+            }
+        }).mount('#app');
+    </script>
+</body>
+</html>
